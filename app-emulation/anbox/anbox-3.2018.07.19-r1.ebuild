@@ -18,7 +18,7 @@ CROS_WORKON_REPO="git://github.com"
 # inherit cros-workon cros-board cros-constants cmake-utils git-r3 linux-info python-single-r1 versionator
 #inherit cros-workon cmake-utils git-r3 linux-info python-single-r1 versionator
 #inherit cros-workon git-r3 cmake-utils linux-info python-single-r1 versionator
-inherit git-r3 cros-workon cmake-utils linux-info python-single-r1 versionator
+inherit git-r3 cmake-utils linux-info python-single-r1 versionator
 
 DESCRIPTION="Run Android applications on any GNU/Linux operating system"
 HOMEPAGE="https://anbox.io/"
@@ -56,17 +56,17 @@ RESTRICT="mirror"
 #	Sets up cgroups and mounts /var/lib/anbox/android.img on LXC path /var/lib/anbox/rootfs/
 #	Bind mounts as desktop user	/var/lib/anbox/cache on /var/lib/anbox/rootfs/cache
 #					/var/lib/anbox/data on /var/lib/anbox/rootfs/data
-# anbox.desktop automatically starts 'anbox session-manger' and launches the windowed Android Application Manager
+# anbox.desktop automatically starts 'anbox session-manger' and launches the windowed Android Application Manager  
 
 RDEPEND="
   chromeos-base/arc-base
   chromeos-base/arc-setup
+  chromeos-base/arc-networkd
   chromeos-base/android-shell
   chromeos-base/selinux-policy
-  chromeos-base/arc-networkd
 
   dev-util/android-tools
-	net-firewall/iptables 
+  net-firewall/iptables 
   dev-libs/boost:=[threads,nls]
 "
 #media-libs/swiftshader
@@ -82,13 +82,14 @@ DEPEND="
   chromeos-base/chromeos-chrome
 	dev-libs/glib:2
 	dev-cpp/properties-cpp
-	dev-libs/protobuf
-	media-libs/glm
-  sys-apps/dbus       
-	media-libs/mesa[egl,gles2]
+	dev-libs/protobuf	
+  sys-apps/dbus       	
+  media-libs/mesa-llvmpipe[egl,gles2]
 	sys-libs/libcap	
 "
 
+#media-libs/glm
+#media-libs/mesa[egl,gles2]
 #sys-kernel/chromeos-kernel-4_14 	
 
 #sys-apps/systemd[nat]
@@ -133,8 +134,7 @@ pkg_setup() {
 }
 
 src_prepare() {  
-  #epatch "${FILESDIR}"/00-without-dbus.patch
-  #epatch "${FILESDIR}"/1.patch  
+  #epatch "${FILESDIR}"/00-without-dbus.patch  
 
 	cmake-utils_src_prepare
 
@@ -173,11 +173,13 @@ src_install() {
 	#insinto /usr/share/pixmaps
 	#newins snap/gui/icon.png anbox.png
 
-	# insinto /var/lib/anbox  
+	#keepdir /var/lib/anbox
+	#insinto /var/lib/anbox  
+  #doins "${FILESDIR}"/config.json
+
   insinto /opt/google/containers/anbox
   keepdir /opt/google/containers/anbox/rootfs
   #/mnt/stateful_partition/var_overlay/lib/anbox
-  keepdir /var/lib/anbox
 #	newins "${DISTDIR}/android_${IMG_REVISION}_amd64.img" android.img
 	newins "${FILESDIR}/android_amd64.img" android.img
   doins "${FILESDIR}"/config.json

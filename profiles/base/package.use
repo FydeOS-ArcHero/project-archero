@@ -1,4 +1,3 @@
->=media-libs/mesa-19.0-r7 wayland
-
+#>=media-libs/mesa-19.0-r7 wayland
 >=dev-libs/boost-1.65.0 nls
 sys-apps/dbus -systemd
