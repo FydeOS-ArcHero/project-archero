@@ -261,14 +261,6 @@
       ]
     },
     {
-      "destination": "/storage",
-      "type": "tmpfs",
-      "source": "tmpfs",
-      "options": [
-        "mode=755"        
-      ]
-    },        
-    {
 			"destination": "/mnt",
 			"type": "tmpfs",
 			"source": "tmpfs",
@@ -278,6 +270,34 @@
 				"nosuid",
 				"nodev",
 				"noexec"
+			]
+    },
+    {
+			"destination": "/config/sdcardfs",
+			"type": "bind",
+			"source": "/sys/kernel/config/sdcardfs",
+			"options": [
+				"bind"
+			]
+    },
+    {
+			"destination": "/var/run/arc",
+			"type": "tmpfs",
+			"source": "tmpfs",
+			"options": [
+				"mode=775",
+				"gid=1000",
+				"noexec",
+				"nodev",
+				"nosuid"
+			]
+		},
+		{
+			"destination": "/var/run/arc/sdcard",
+			"type": "bind",
+			"source": "/run/arc/sdcard",
+			"options": [
+				"rbind"
 			]
 		},
     {
@@ -291,6 +311,17 @@
         "nodev"
       ]
     },
+    {
+			"destination": "/sys/kernel/debug",
+			"type": "tmpfs",
+			"source": "tmpfs",
+			"options": [
+				"mode=755",
+				"nosuid",
+				"nodev",
+				"noexec"
+			]
+		},
     {
       "destination": "/proc",
       "type": "proc",
