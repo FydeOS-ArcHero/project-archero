@@ -1,0 +1,250 @@
+diff --git a/arc/setup/arc_setup.cc b/arc/setup/arc_setup.cc
+index 769009efe7..e68a03fbca 100644
+--- a/arc/setup/arc_setup.cc
++++ b/arc/setup/arc_setup.cc
+@@ -87,9 +87,11 @@ constexpr char kAndroidGeneratedPropertiesDirectory[] =
+     "/run/arc/host_generated";
+ constexpr char kAndroidKmsgFifo[] = "/run/arc/android.kmsg.fifo";
+ constexpr char kAndroidMutableSource[] =
+-    "/opt/google/containers/android/rootfs/android-data";
++    //"/opt/google/containers/android/rootfs/android-data";
++    "/mnt/stateful_partition/unencrypted/anbox-data";
+ constexpr char kAndroidRootfsDirectory[] =
+-    "/opt/google/containers/android/rootfs/root";
++    // "/opt/google/containers/android/rootfs/root";
++    "/opt/google/containers/anbox/rootfs";
+ constexpr char kOldApkCacheDir[] =
+     "/mnt/stateful_partition/unencrypted/cache/apk";
+ constexpr char kApkCacheDir[] = "/mnt/stateful_partition/unencrypted/apkcache";
+@@ -830,7 +832,7 @@ void ArcSetup::MaybeStartUreadaheadInTracingMode() {
+   }
+ }
+ 
+-void ArcSetup::SetUpSdcard() {
++void ArcSetup::SetUpSdcard(int *pcontainer_pid) {
+   constexpr unsigned int mount_flags =
+       MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_NOATIME;
+   const base::FilePath source_directory =
+@@ -839,7 +841,12 @@ void ArcSetup::SetUpSdcard() {
+   const bool is_esdfs_supported = config_.GetBoolOrDie("USE_ESDFS");
+ 
+   // Get the container's user namespace file descriptor.
+-  const int container_pid = config_.GetIntOrDie("CONTAINER_PID");
++  int container_pid = 0;
++  if (pcontainer_pid == nullptr){
++    container_pid = config_.GetIntOrDie("CONTAINER_PID");
++  }else{
++    container_pid = *pcontainer_pid;
++  }
+   base::ScopedFD container_userns_fd(HANDLE_EINTR(
+       open(base::StringPrintf("/proc/%d/ns/user", container_pid).c_str(),
+            O_RDONLY)));
+@@ -1733,7 +1740,7 @@ void ArcSetup::MaybeStartAdbdProxy(bool is_dev_mode,
+ }
+ 
+ void ArcSetup::ContinueContainerBoot(ArcBootType boot_type,
+-                                     const std::string& serialnumber) {
++                                     const std::string& serialnumber) {  
+   constexpr char kCommand[] = "/system/bin/arcbootcontinue";
+ 
+   const bool mount_demo_apps =
+@@ -2054,7 +2061,81 @@ void ArcSetup::OnSetup() {
+   WaitForRtLimitsJob();
+ }
+ 
+-void ArcSetup::OnBootContinue() {
++void ArcSetup::onPrecreateAnbox(){
++  CreateBuildProperties();
++
++  if (!base::PathExists(arc_paths_->sdcard_mount_directory)){
++    SetUpSharedTmpfsForExternalStorage();  
++  }  
++}
++
++void ArcSetup::onPrechrootAnbox(){
++  CreateBuildProperties();
++  LOG(INFO) << "onAnbox CreateBuildProperties";
++
++  int container_pid;
++  base::FilePath rootfs;
++
++  EXIT_IF(!GetOciContainerState(base::FilePath("/dev/stdin"), &container_pid, &rootfs));
++  LOG(INFO) << "ArcSetup::onAnbox " << container_pid << " " << rootfs.value();  
++
++  SetUpSharedTmpfsForExternalStorage();
++  LOG(INFO) << "ArcSetup::onAnbox SetUpSharedTmpfsForExternalStorage";
++
++  SetUpSdcard(&container_pid);
++  LOG(INFO) << "ArcSetup::onAnbox SetUpSdcard";
++
++  //StartNetworking();
++  if (!patchpanel::Client::New()->NotifyArcStartup(container_pid)) {
++    LOG(ERROR) << "Failed to notify network service";
++  }
++}
++
++void ArcSetup::onPostchrootAnbox(){
++  SetUpSdcard();
++
++  const char *dirs[] = {"default", "read", "write"};  
++
++  for (auto i :dirs){
++    std::vector<std::string> command_line = {
++      "/usr/bin/nsenter", 
++      "--target", std::to_string(config_.GetIntOrDie("CONTAINER_PID")),
++      "--mount",
++      "--uts",
++      "--ipc",
++      "--net",
++      "--pid",
++      "--",
++      "/system/bin/mount",
++      std::string("/var/run/arc/sdcard/") + i + "/emulated",
++      std::string("/mnt/runtime/") + i + "/emulated"
++    };
++
++    LaunchAndWait(command_line);
++  }
++
++  if (!patchpanel::Client::New()->NotifyArcStartup(config_.GetIntOrDie("CONTAINER_PID"))) {
++    LOG(ERROR) << "Failed to notify network service";
++  }  
++
++  std::vector<std::string> command_line = {
++    "/usr/bin/nsenter", 
++    "--target", std::to_string(config_.GetIntOrDie("CONTAINER_PID")),
++    "--mount",
++    "--uts",
++    "--ipc",
++    "--net",
++    "--pid",
++    "--",
++    "/system/bin/setprop",
++    "net.fydeos.interface",
++    "arc0"   
++  };
++
++  LaunchAndWait(command_line);
++}
++
++void ArcSetup::OnBootContinue() {  
+   const bool is_dev_mode = config_.GetBoolOrDie("CHROMEOS_DEV_MODE");
+   const bool is_inside_vm = config_.GetBoolOrDie("CHROMEOS_INSIDE_VM");
+   const std::string serialnumber = GetSerialNumber();
+@@ -2131,6 +2212,36 @@ void ArcSetup::OnStop() {
+   RemoveAndroidKmsgFifo();
+ }
+ 
++void ArcSetup::CreateBuildProperties() {
++  EXIT_IF(!brillo::MkdirRecursively(
++               arc_paths_->android_generated_properties_directory, 0755)
++               .is_valid());
++
++  auto config = std::make_unique<brillo::CrosConfig>();
++  EXIT_IF(!config->Init());
++
++  constexpr const char* prop_files[] = {"default.prop", "system/build.prop"};
++  for (const auto& prop_file : prop_files) {
++    const base::FilePath in_prop =
++        arc_paths_->android_rootfs_directory.Append(prop_file);
++    const base::FilePath expanded_prop =
++        arc_paths_->android_generated_properties_directory.Append(
++            in_prop.BaseName());
++    ExpandPropertyFile(in_prop, expanded_prop, config.get());
++  }
++}
++
++void ArcSetup::ExpandPropertyFile(const base::FilePath& input,
++                                  const base::FilePath& output,
++                                  brillo::CrosConfigInterface* config) {
++  std::string content;
++  std::string expanded;
++  EXIT_IF(!base::ReadFileToString(input, &content));
++  EXIT_IF(!ExpandPropertyContents(content, config, &expanded));
++  EXIT_IF(!WriteToFile(output, 0600, expanded));
++  EXIT_IF(!Chown(kRootUid, kRootGid, output));
++}
++
+ void ArcSetup::OnOnetimeSetup() {
+   EnsureContainerDirectories();
+   MountOnOnetimeSetup();
+@@ -2236,7 +2347,7 @@ std::string ArcSetup::GetSystemBuildPropertyOrDie(const std::string& name) {
+   }
+   DCHECK(!system_properties_.empty());
+   const auto it = system_properties_.find(name);
+-  CHECK(system_properties_.end() != it) << "Failed to read property: " << name;
++  CHECK(system_properties_.end() != it) << "Failed to read property: " << name;  
+   CHECK(!it->second.empty());
+   return it->second;
+ }
+@@ -2283,6 +2394,15 @@ void ArcSetup::Run() {
+     case Mode::UNKNOWN:
+       NOTREACHED();
+       break;
++    case arc::Mode::PRECREATE_ANBOX:
++      onPrecreateAnbox();
++      break;
++    case arc::Mode::PRECHROOT_ANBOX:
++      onPrechrootAnbox();
++      break;
++    case arc::Mode::POSTCHROOT_ANBOX:
++      onPostchrootAnbox();
++      break;
+   }
+ }
+ 
+diff --git a/arc/setup/arc_setup.h b/arc/setup/arc_setup.h
+index 93376266ed..ca80d30dd8 100644
+--- a/arc/setup/arc_setup.h
++++ b/arc/setup/arc_setup.h
+@@ -71,8 +71,12 @@ enum class Mode {
+   REMOVE_DATA,
+   MOUNT_SDCARD,
+   UNMOUNT_SDCARD,
+-  UPDATE_RESTORECON_LAST,
++  UPDATE_RESTORECON_LAST,  
+   UNKNOWN,
++
++  PRECREATE_ANBOX,
++  PRECHROOT_ANBOX,
++  POSTCHROOT_ANBOX,
+ };
+ 
+ // A class that does the actual setup (and stop) operations.
+@@ -136,7 +140,7 @@ class ArcSetup {
+   void SetUpSharedApkDirectory();
+ 
+   // Sets up sdcard mount, if required.
+-  void SetUpSdcard();
++  void SetUpSdcard(int *pcontainer_pid = nullptr);
+ 
+   // Creates files and directories needed by the container.
+   void CreateContainerFilesAndDirectories();
+@@ -368,6 +372,12 @@ class ArcSetup {
+ 
+   // Called when arc-setup is called with --mode=update-restorecon-last.
+   void OnUpdateRestoreconLast();
++  
++  void onPrecreateAnbox();
++  void onPrechrootAnbox();
++  void onPostchrootAnbox();
++
++  void CreateBuildProperties();  
+ 
+   // Returns system build property.
+   std::string GetSystemBuildPropertyOrDie(const std::string& name);
+diff --git a/arc/setup/main.cc b/arc/setup/main.cc
+index a42e9382ca..4e3044e5b8 100644
+--- a/arc/setup/main.cc
++++ b/arc/setup/main.cc
+@@ -37,6 +37,10 @@ arc::Mode GetMode(const std::string& mode) {
+       {"mount-sdcard", arc::Mode::MOUNT_SDCARD},
+       {"unmount-sdcard", arc::Mode::UNMOUNT_SDCARD},
+       {"update-restorecon-last", arc::Mode::UPDATE_RESTORECON_LAST},
++
++      {"precreate-anbox", arc::Mode::PRECREATE_ANBOX},
++      {"prechroot-anbox", arc::Mode::PRECHROOT_ANBOX},
++      {"postchroot-anbox", arc::Mode::POSTCHROOT_ANBOX},
+   };
+   for (const auto& mode_name : kModeNameMapping) {
+     if (mode == mode_name.first)
