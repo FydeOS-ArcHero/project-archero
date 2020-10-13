@@ -334,9 +334,14 @@
     }
   ],  
   "hooks": {
-    "prechroot": [
-			{
-				"path": "/opt/google/containers/anbox/runc_hook.sh"
+    "precreate": [
+			{        
+				"path": "/usr/sbin/arc-setup",
+        "args":[
+          "arc-setup", 
+          "--mode=prechroot-anbox", 
+          "--log_tag=arc-prechroot-anbox"
+        ]
 			}
 		]
   },
