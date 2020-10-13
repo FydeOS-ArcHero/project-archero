@@ -7,33 +7,20 @@ PYTHON_COMPAT=( python2_7 python3_6 )
 #CROS_WORKON_COMMIT="bdfda8c2971ecf01f8fcca2e3c961f49406db7c9"
 #CROS_WORKON_TREE="dc715afb377abbc9f3bfa8a33ea602262630e79f"
 CROS_WORKON_PROJECT="FydeOS/anbox_fydeos"
-CROS_WORKON_REPO="git://github.com"
-#CROS_WORKON_LOCALNAME="anbox2"
-#CROS_WORKON_EGIT_BRANCH="master"
-#CROS_WORKON_OUTOFTREE_BUILD="1"
-#CROS_WORKON_DESTDIR="${S}"
-#CROS_WORKON_BLACKLIST="1"
+CROS_WORKON_LOCALNAME="anbox"
+CROS_WORKON_INCREMENTAL_BUILD="1"
+CROS_WORKON_OUTOFTREE_BUILD="1"
 
-#inherit cmake-utils git-r3 linux-info python-single-r1 systemd udev versionator
-# inherit cros-workon cros-board cros-constants cmake-utils git-r3 linux-info python-single-r1 versionator
-#inherit cros-workon cmake-utils git-r3 linux-info python-single-r1 versionator
-#inherit cros-workon git-r3 cmake-utils linux-info python-single-r1 versionator
-inherit git-r3 cros-workon cmake-utils linux-info python-single-r1 versionator
+inherit cros-workon cmake-utils linux-info python-single-r1 versionator
 
 DESCRIPTION="Run Android applications on any GNU/Linux operating system"
 HOMEPAGE="https://anbox.io/"
-EGIT_REPO_URI="https://github.com/FydeOS/anbox_fydeos.git"
-#EGIT_COMMIT="bdfda8c2971ecf01f8fcca2e3c961f49406db7c9"
-IMG_PATH="$(get_version_component_range 2)/$(get_version_component_range 3)/$(get_version_component_range 4)"
-#IMG_REVISION="$(get_version_component_range 5)"
-#SRC_URI="http://build.anbox.io/android-images/${IMG_PATH}/android_${IMG_REVISION}_amd64.img"
-#SRC_URI="http://build.anbox.io/android-images/${IMG_PATH}/android_amd64.img"
 
 LICENSE="GPL-3"
 SLOT="0"
-KEYWORDS="~amd64 ~x86"
+KEYWORDS="~*"
 IUSE="test privileged"
-RESTRICT="mirror"
+#RESTRICT="mirror"
 
 ## Anbox makes use of LXC containers ##
 # File and directory permissions are set by LXC as either a 'privileged' or 'unprivileged' container #
@@ -61,9 +48,9 @@ RESTRICT="mirror"
 RDEPEND="
   chromeos-base/arc-base
   chromeos-base/arc-setup
-  chromeos-base/android-shell
-  chromeos-base/selinux-policy
   chromeos-base/arc-networkd
+  chromeos-base/android-shell
+  chromeos-base/selinux-policy  
 
   dev-util/android-tools
 	net-firewall/iptables 
@@ -83,12 +70,13 @@ DEPEND="
 	dev-libs/glib:2
 	dev-cpp/properties-cpp
 	dev-libs/protobuf
-	media-libs/glm
-  sys-apps/dbus       
-	media-libs/mesa[egl,gles2]
+  sys-apps/dbus
+	media-libs/mesa-llvmpipe[egl,gles2]
 	sys-libs/libcap	
 "
 
+#media-libs/glm
+#media-libs/mesa[egl,gles2]
 #sys-kernel/chromeos-kernel-4_14 	
 
 #sys-apps/systemd[nat]
@@ -132,10 +120,7 @@ pkg_setup() {
 	python-single-r1_pkg_setup
 }
 
-src_prepare() {  
-  #epatch "${FILESDIR}"/00-without-dbus.patch
-  #epatch "${FILESDIR}"/1.patch  
-
+src_prepare() {
 	cmake-utils_src_prepare
 
 	#! use test && \
@@ -173,15 +158,18 @@ src_install() {
 	#insinto /usr/share/pixmaps
 	#newins snap/gui/icon.png anbox.png
 
-	# insinto /var/lib/anbox  
+	# insinto /var/lib/anbox
   insinto /opt/google/containers/anbox
   keepdir /opt/google/containers/anbox/rootfs
-  #/mnt/stateful_partition/var_overlay/lib/anbox
-  keepdir /var/lib/anbox
+  #/mnt/stateful_partition/var_overlay/lib/anbox  
+  keepdir /mnt/stateful_partition/unencrypted/anbox-data
 #	newins "${DISTDIR}/android_${IMG_REVISION}_amd64.img" android.img
 	newins "${FILESDIR}/android_amd64.img" android.img
   doins "${FILESDIR}"/config.json
 
+  #exeinto /opt/google/containers/anbox
+  #doexe "${FILESDIR}/runc_hook.sh"
+  
 	# udev_dorules "${FILESDIR}/99-anbox.rules"
 
   insinto /etc/init
@@ -193,9 +181,9 @@ src_install() {
 # }
 
 src_configure(){  
-  local mycmakeargs=(
-		-DCMAKE_BUILD_TYPE="Debug"
-	)
+  # local mycmakeargs=(
+	# 	-DCMAKE_BUILD_TYPE="Debug"
+	# )
   filter-flags -fno-exceptions
 
   cmake-utils_src_configure
