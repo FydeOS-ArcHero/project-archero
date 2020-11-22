@@ -173,7 +173,8 @@ src_install() {
 	# udev_dorules "${FILESDIR}/99-anbox.rules"
 
   insinto /etc/init
-	doins "${FILESDIR}"/anbox-init.conf
+  doins "${FILESDIR}"/anbox-init.conf
+  doins "${FILESDIR}"/anbox-session.conf
 }
 
 # src_compile(){
