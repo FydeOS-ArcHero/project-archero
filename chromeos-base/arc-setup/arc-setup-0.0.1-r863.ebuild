@@ -72,7 +72,7 @@ enable_esdfs() {
 
 src_prepare(){
   epatch "${FILESDIR}"/*.patch
-  # eapply_user
+  eapply_user
 }
 
 src_install() {

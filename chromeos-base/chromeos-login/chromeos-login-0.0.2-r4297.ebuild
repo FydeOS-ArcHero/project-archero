@@ -73,7 +73,8 @@ platform_pkg_test() {
 }
 
 src_prepare(){
-  epatch "${FILESDIR}"/*.patch  
+  epatch "${FILESDIR}"/*.patch
+  eapply_user  
 }
 
 src_install() {
