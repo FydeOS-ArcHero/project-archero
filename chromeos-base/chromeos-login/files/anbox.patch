@@ -1,0 +1,59 @@
+diff --git a/login_manager/SessionManager.conf b/login_manager/SessionManager.conf
+index 305911be13..a3aec3e32d 100644
+--- a/login_manager/SessionManager.conf
++++ b/login_manager/SessionManager.conf
+@@ -126,6 +126,9 @@
+     <allow send_destination="org.chromium.SessionManager"
+            send_interface="org.chromium.SessionManagerInterface"
+            send_member="StartArcMiniContainer"/>
++    <allow send_destination="org.chromium.SessionManager"
++           send_interface="org.chromium.SessionManagerInterface"
++           send_member="StartAnboxContainer"/>       
+     <allow send_destination="org.chromium.SessionManager"
+            send_interface="org.chromium.SessionManagerInterface"
+            send_member="UpgradeArcContainer"/>
+diff --git a/login_manager/dbus_bindings/org.chromium.SessionManagerInterface.xml b/login_manager/dbus_bindings/org.chromium.SessionManagerInterface.xml
+index 6801615641..797cb7d82f 100644
+--- a/login_manager/dbus_bindings/org.chromium.SessionManagerInterface.xml
++++ b/login_manager/dbus_bindings/org.chromium.SessionManagerInterface.xml
+@@ -564,6 +564,8 @@
+       <arg type="ay" name="request" direction="in" />
+     </method>
+ 
++    <method name="StartAnboxContainer" />      
++
+     <!--
+         UpgradeArcContainer:
+         @request: Serialized UpgradeArcContainerRequest proto message
+diff --git a/login_manager/session_manager_impl.cc b/login_manager/session_manager_impl.cc
+index 1dd66f5357..037db7ed22 100644
+--- a/login_manager/session_manager_impl.cc
++++ b/login_manager/session_manager_impl.cc
+@@ -1248,6 +1248,15 @@ bool SessionManagerImpl::StartArcMiniContainer(
+ #endif  // !USE_CHEETS
+ }
+ 
++bool SessionManagerImpl::StartAnboxContainer(brillo::ErrorPtr* error) {
++  std::vector<std::string> env_vars = {
++    "XDG_RUNTIME_DIR=/run/chrome"
++  };
++  init_controller_->TriggerImpulse("start-anbox-instance", env_vars,
++                                   InitDaemonController::TriggerMode::ASYNC);
++  return true;
++}
++
+ bool SessionManagerImpl::UpgradeArcContainer(
+     brillo::ErrorPtr* error, const std::vector<uint8_t>& in_request) {
+ #if USE_CHEETS
+diff --git a/login_manager/session_manager_impl.h b/login_manager/session_manager_impl.h
+index b28f3919bd..81d6cc4a72 100644
+--- a/login_manager/session_manager_impl.h
++++ b/login_manager/session_manager_impl.h
+@@ -268,6 +268,7 @@ class SessionManagerImpl
+                        const std::string& in_data) override;
+   bool StartArcMiniContainer(brillo::ErrorPtr* error,
+                              const std::vector<uint8_t>& in_request) override;
++  bool StartAnboxContainer(brillo::ErrorPtr* error) override;
+   bool UpgradeArcContainer(brillo::ErrorPtr* error,
+                            const std::vector<uint8_t>& in_request) override;
+   bool StopArcInstance(brillo::ErrorPtr* error) override;
