@@ -339,6 +339,16 @@
 				"path": "/usr/sbin/arc-setup",
         "args":[
           "arc-setup", 
+          "--mode=precreate-anbox", 
+          "--log_tag=arc-precreate-anbox"
+        ]
+			}
+		],
+    "prechroot": [
+			{        
+				"path": "/usr/sbin/arc-setup",
+        "args":[
+          "arc-setup", 
           "--mode=prechroot-anbox", 
           "--log_tag=arc-prechroot-anbox"
         ]
