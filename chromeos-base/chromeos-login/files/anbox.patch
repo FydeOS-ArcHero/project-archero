@@ -35,7 +35,8 @@ index 1dd66f5357..037db7ed22 100644
  
 +bool SessionManagerImpl::StartAnboxContainer(brillo::ErrorPtr* error) {
 +  std::vector<std::string> env_vars = {
-+    "XDG_RUNTIME_DIR=/run/chrome"
++    "XDG_RUNTIME_DIR=/run/chrome",
++    "XDG_DATA_HOME=/mnt/stateful_partition/unencrypted/share"
 +  };
 +  init_controller_->TriggerImpulse("start-anbox-instance", env_vars,
 +                                   InitDaemonController::TriggerMode::ASYNC);
