@@ -239,6 +239,15 @@
 			]
     },            
     {
+			"destination": "/dev/anbox_chrome",
+			"type": "bind",
+			"source": "/var/run/chrome/anbox/sockets/anbox_chrome",
+			"options": [
+        "mode=666",
+				"bind"
+			]
+    },            
+    {
       "destination": "/dev/pts",
       "type": "devpts",
       "source": "devpts",
