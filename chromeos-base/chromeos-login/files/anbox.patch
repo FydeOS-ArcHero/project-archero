@@ -26,10 +26,10 @@ index 6801615641..797cb7d82f 100644
          UpgradeArcContainer:
          @request: Serialized UpgradeArcContainerRequest proto message
 diff --git a/login_manager/session_manager_impl.cc b/login_manager/session_manager_impl.cc
-index 1dd66f5357..037db7ed22 100644
+index 1dd66f5357..1b9cf7da7c 100644
 --- a/login_manager/session_manager_impl.cc
 +++ b/login_manager/session_manager_impl.cc
-@@ -1248,6 +1248,15 @@ bool SessionManagerImpl::StartArcMiniContainer(
+@@ -1248,6 +1248,16 @@ bool SessionManagerImpl::StartArcMiniContainer(
  #endif  // !USE_CHEETS
  }
  
